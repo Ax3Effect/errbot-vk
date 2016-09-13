@@ -1,0 +1,6 @@
+[Core]
+Name = VK
+Module = vkbackend
+
+[Documentation]
+Description = This is the VK backend for Err. (vk.com)
