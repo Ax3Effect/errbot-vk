@@ -2,6 +2,7 @@ errbot-vk
 ======
 
 This is an errbot (http://errbot.io) backend for VK (https://vk.com)
+
 Allows you to create chat bots for VK.
 
 ## Installation (from scratch)
@@ -55,3 +56,6 @@ BOT_IDENTITY = {'token':'YOUR KEY HERE'}
 * Getting user information (not working on community chats)
 * Getting chat information (not working on community chats)
 
+## Support
+
+If you need help send me a message: https://vk.com/ax3effect
