@@ -1,7 +1,6 @@
 import logging
 import sys
 
-#from errbot import PY2
 from errbot.backends.base import RoomError, Identifier, Person, RoomOccupant, ONLINE, Room, Message
 from errbot.core import ErrBot
 from errbot.rendering import text
@@ -100,7 +99,6 @@ class VKIdentifier(Identifier):
     __str__ = __unicode__
 
     aclattr = id
-
 
 class VKPerson(VKIdentifier, Person):
     def __init__(self, id, first_name=None, last_name=None, username=None):
@@ -205,8 +203,6 @@ class VKMUCOccupant(VKPerson, RoomOccupant):
         return self._username
 
 
-
-
 class VKBackend(ErrBot):
     def __init__(self, config):
         super().__init__(config)
@@ -221,14 +217,7 @@ class VKBackend(ErrBot):
             self.login = identity.get('login', None)
             self.password = identity.get('password', None)
             self.token = None
-        '''
-        if not self.token:
-            log.fatal(
-                "You need to supply a token for me to use. You can obtain "
-                "a token by registering your bot with the Bot Father (@BotFather)"
-            )
-            sys.exit(1)
-        '''
+
         self.vk = None  # Will be initialized in serve_once
         self.bot_instance = None  # Will be set in serve_once
 
@@ -337,11 +326,9 @@ class VKBackend(ErrBot):
             log.debug("Triggering disconnect callback")
             self.disconnect_callback()
 
-
-
     def _handle_message(self, message):
 
-        #message_instance = #self.build_message(message[6])
+        
         message_instance = Message(message[6], extras={'forward_messages':message[1]})
         
         if message[3] > 2000000000:
@@ -361,7 +348,7 @@ class VKBackend(ErrBot):
 
             # private
             user_id = str(message[3])
-            #print(user_id)
+            
             user = self.get_user_query(user_id)
             if user:
                 message_instance.frm = VKPerson(
@@ -382,7 +369,7 @@ class VKBackend(ErrBot):
         log.info("[{}]: {}".format(message[3], message[6]))
 
         message_instance.extras["forward_messages"] = message[1]
-        #print(message_instance.extras)
+        
         if message[7].get("source_act", None):
             if message[7].get("source_act", None) == "chat_invite_user":
                 if int(message[7]["source_mid"]) == int(self.bot_identifier.id):
@@ -394,7 +381,7 @@ class VKBackend(ErrBot):
     def send_message(self, mess):
         super().send_message(mess)
         body = self.md_converter.convert(mess.body)
-        #print(mess.extras)
+        
 
         payload = {"peer_id":mess.to,
                     "message":body,
