@@ -300,21 +300,27 @@ class VKBackend(ErrBot):
                 mode = self.pollConfig["mode"])
 
             while True:
-                response = requests.post(self.pollServer).json()
+                try:
+                    response = requests.post(self.pollServer).json()
+                except ValueError:
+                    response = None
+                    pass
+                    
+                if response:
 
-                self.pollServer = "http://{server}?act={act}&key={key}&ts={ts}&wait={wait}&mode={mode}".format(server=self.initresponse["server"], 
-                act=self.pollConfig["act"], key=self.initresponse["key"], ts=response["ts"], wait=self.pollConfig["wait"],
-                mode = self.pollConfig["mode"])
+                    self.pollServer = "http://{server}?act={act}&key={key}&ts={ts}&wait={wait}&mode={mode}".format(server=self.initresponse["server"], 
+                    act=self.pollConfig["act"], key=self.initresponse["key"], ts=response["ts"], wait=self.pollConfig["wait"],
+                    mode = self.pollConfig["mode"])
 
-                for update in response["updates"]:
+                    for update in response["updates"]:
 
-                    #check if its real message
-                    if update[0] == 4:
-                        #print("got message")
-                        log.debug(update)
-                        self._handle_message(update)
+                        #check if its real message
+                        if update[0] == 4:
+                            #print("got message")
+                            log.debug(update)
+                            self._handle_message(update)
 
-                pass
+                    pass
 
 
         except KeyboardInterrupt:
