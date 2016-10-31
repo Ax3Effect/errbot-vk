@@ -305,7 +305,10 @@ class VKBackend(ErrBot):
                 except ValueError:
                     response = None
                     pass
-                    
+
+                if response.get("ts", None):
+                    response = None    
+
                 if response:
 
                     self.pollServer = "http://{server}?act={act}&key={key}&ts={ts}&wait={wait}&mode={mode}".format(server=self.initresponse["server"], 
