@@ -15,7 +15,7 @@ import requests
 log = logging.getLogger('errbot.backends.VK')
 
 MESSAGE_SIZE_LIMIT = 50000
-rate_limit = 3 # one message send per {rate_limit} seconds
+rate_limit = 3  # one message send per {rate_limit} seconds
 
 try:
     import vk_api as vk
@@ -38,6 +38,7 @@ class RoomsNotSupportedError(RoomError):
             )
         super().__init__(message)
 
+
 class _Equals(object):
     def __init__(self, o):
         self.obj = o
@@ -47,6 +48,7 @@ class _Equals(object):
 
     def __hash__(self):
         return 0
+
 
 def lru_cache_ignoring_first_argument(*args, **kwargs):
     lru_decorator = functools.lru_cache(*args, **kwargs)
@@ -65,6 +67,7 @@ def lru_cache_ignoring_first_argument(*args, **kwargs):
         return function
 
     return decorator
+
 
 class VKBotFilter(object):
     """
@@ -100,14 +103,14 @@ class VKIdentifier(Identifier):
 
     aclattr = id
 
+
 class VKPerson(VKIdentifier, Person):
     def __init__(self, id, first_name=None, last_name=None, username=None):
         super().__init__(id)
-        
+
         self._first_name = first_name
         self._last_name = last_name
         self._username = username
-
 
     @property
     def id(self):
@@ -154,13 +157,13 @@ class VKRoom(VKIdentifier, Room):
         """Return the groupchat title (only applies to groupchats)"""
         return self._title
 
-    def join(self, username: str=None, password: str=None):
+    def join(self, username: str = None, password: str = None):
         raise RoomsNotSupportedError()
 
     def create(self):
         raise RoomsNotSupportedError()
 
-    def leave(self, reason: str=None):
+    def leave(self, reason: str = None):
         raise RoomsNotSupportedError()
 
     def destroy(self):
@@ -190,6 +193,7 @@ class VKMUCOccupant(VKPerson, RoomOccupant):
     """
     This class represents a person inside a MUC.
     """
+
     def __init__(self, id, room, first_name=None, last_name=None, username=None):
         super().__init__(id=id, first_name=first_name, last_name=last_name, username=username)
         self._room = room
@@ -232,14 +236,14 @@ class VKBackend(ErrBot):
             # user query doesnt work with group token
             if not self.token:
                 user = self.vkapi.users.get(user_ids=id_)
-                #print(user)
+                # print(user)
                 return user[0]
             else:
                 return None
         except Exception:
             log.exception(
                 "An exception occurred while trying to get user {}".format(id_)
-                )
+            )
             raise
 
     @lru_cache_ignoring_first_argument(128)
@@ -250,7 +254,7 @@ class VKBackend(ErrBot):
         except Exception:
             log.exception(
                 "An exception occurred while trying to get user {}".format(id_)
-                )
+            )
             raise
 
     @lru_cache_ignoring_first_argument(128)
@@ -261,6 +265,31 @@ class VKBackend(ErrBot):
         except Exception:
             log.exception("fail")
             raise
+
+    def init_long_polling(self, update=0):
+        result = self.vkapi.messages.getLongPollServer(use_ssl=1)
+        if not result:
+            log.exception("Can't get Long Polling server from VK API!")
+        if update == 0:
+            # If this is a first initialization - we need to change a server
+            self.longpoll_server = "https://" + result['server']
+        if update in (0, 3):
+            # If we need to initialize, or error code is 3
+            # We need to get long polling key and last timestamp
+            self.longpoll_key = result['key']
+            self.last_ts = result['ts']
+        elif update == 2:
+            # If error codeis 2 - we need to get a new key
+            self.longpoll_key = result['key']
+
+        self.longpoll_values = {
+            'act': 'a_check',
+            'key': self.longpoll_key,
+            'ts': self.last_ts,
+            'wait': 20,  # Request time-out
+            'mode': 2,
+            'version': 1
+        }
 
     def serve_once(self):
         log.info("Initializing connection")
@@ -274,7 +303,6 @@ class VKBackend(ErrBot):
             self.vkapi = self.vk_session.get_api()
 
             if not self.token:
-                
                 me = self.vkapi.users.get()[0]
                 self.bot_identifier = VKPerson(
                     id=me["id"],
@@ -282,7 +310,7 @@ class VKBackend(ErrBot):
                     last_name=None,
                     username=None
                 )
-            
+
         except vk.AuthorizationError as e:
             log.error("Connection failure: %s", e.message)
             return False
@@ -290,37 +318,34 @@ class VKBackend(ErrBot):
         log.info("Connected")
         self.reset_reconnection_count()
         self.connect_callback()
-
+        self.init_long_polling()
         self.pollConfig = {"mode": 66, "wait": 30, "act": "a_check"}
 
         try:
-            self.initresponse = self.vkapi.messages.getLongPollServer()
-            self.pollServer = "http://{server}?act={act}&key={key}&ts={ts}&wait={wait}&mode={mode}".format(server=self.initresponse["server"], 
-                act=self.pollConfig["act"], key=self.initresponse["key"], ts=self.initresponse["ts"], wait=self.pollConfig["wait"],
-                mode = self.pollConfig["mode"])
-
             while True:
                 try:
-                    response = requests.post(self.pollServer).json()
+                    data = requests.post(self.longpoll_server, params=self.longpoll_values)
+                    response = data.json()
                 except ValueError:
-                    response = None
-                    pass
-                    
-                if response:
+                    continue
+                failed = response.get('failed')
+                if failed:
+                    err_num = int(failed)
+                    # Error code 1 - Timestamp needs to be updated
+                    if err_num == 1:
+                        self.longpoll_values['ts'] = response['ts']
+                    # Error codes 2 and 3 - new Long Polling server is required
+                    elif err_num in (2, 3):
+                        self.init_long_polling(err_num)
+                    continue
+                self.longpoll_values['ts'] = response['ts']
+                for update in response["updates"]:
+                    # check if its real message
+                    if update[0] == 4:
+                        # print("got message")
+                        log.debug(update)
+                        self._handle_message(update)
 
-                    self.pollServer = "http://{server}?act={act}&key={key}&ts={ts}&wait={wait}&mode={mode}".format(server=self.initresponse["server"], 
-                    act=self.pollConfig["act"], key=self.initresponse["key"], ts=response["ts"], wait=self.pollConfig["wait"],
-                    mode = self.pollConfig["mode"])
-
-                    for update in response["updates"]:
-
-                        #check if its real message
-                        if update[0] == 4:
-                            #print("got message")
-                            log.debug(update)
-                            self._handle_message(update)
-
-                    pass
 
 
         except KeyboardInterrupt:
@@ -334,12 +359,11 @@ class VKBackend(ErrBot):
 
     def _handle_message(self, message):
 
-        
-        message_instance = Message(message[6], extras={'forward_messages':message[1]})
-        
+        message_instance = Message(message[6], extras={'forward_messages': message[1]})
+
         if message[3] > 2000000000:
             # conference chat
-            room = VKRoom(id=message[3]-2000000000, title=message[5])
+            room = VKRoom(id=message[3] - 2000000000, title=message[5])
             user_id = message[7].get("from", "?")
             user = self.get_user_query(user_id)
             message_instance.frm = VKMUCOccupant(
@@ -354,7 +378,7 @@ class VKBackend(ErrBot):
 
             # private
             user_id = str(message[3])
-            
+
             user = self.get_user_query(user_id)
             if user:
                 message_instance.frm = VKPerson(
@@ -375,7 +399,7 @@ class VKBackend(ErrBot):
         log.info("[{}]: {}".format(message[3], message[6]))
 
         message_instance.extras["forward_messages"] = message[1]
-        
+
         if message[7].get("source_act", None):
             if message[7].get("source_act", None) == "chat_invite_user":
                 if int(message[7]["source_mid"]) == int(self.bot_identifier.id):
@@ -383,15 +407,14 @@ class VKBackend(ErrBot):
         else:
             self.callback_message(message_instance)
 
-    @rate_limited(rate_limit) #<---- Rate Limit
+    @rate_limited(rate_limit)  # <---- Rate Limit
     def send_message(self, mess):
         super().send_message(mess)
         body = self.md_converter.convert(mess.body)
-        
 
-        payload = {"peer_id":mess.to,
-                    "message":body,
-                    }
+        payload = {"peer_id": mess.to,
+                   "message": body,
+                   }
 
         if mess.extras.get("fwd_off", None) != True:
             if mess.extras.get("forward_messages", None):
@@ -399,7 +422,7 @@ class VKBackend(ErrBot):
 
         if mess.extras.get("attachment", None):
             payload["attachment"] = mess.extras["attachment"]
-        
+
         sent_message = self.vkapi.messages.send(**payload)
 
     def send_reply(self, mess, text):
@@ -425,7 +448,7 @@ class VKBackend(ErrBot):
 
     def build_reply(self, mess, text=None, private=False):
         response = self.build_message(text)
-        #response.frm = self.bot_identifier
+        # response.frm = self.bot_identifier
         if private:
             response.to = mess.frm
         else:
