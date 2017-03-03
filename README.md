@@ -40,7 +40,7 @@ Also add this if you want to use administrator functions:
 BOT_ADMINS = ('YOUR PROFILE ID HERE', )
 ```
 
-### Community API key
+### Community API key or using token from account
 
 Go to community settings -> API usage, select "Create new key", select "only messages", copy that key.
 
@@ -48,6 +48,8 @@ Add the following to "config.py" file:
 ```
 BOT_IDENTITY = {'token':'YOUR KEY HERE'}
 ```
+
+You can also get a token from https://vkhost.github.io and use it in the same way.
 
 ## What is supported
 * Message receiving
