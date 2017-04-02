@@ -320,6 +320,7 @@ class VKBackend(ErrBot):
         self.connect_callback()
         self.init_long_polling()
         self.pollConfig = {"mode": 66, "wait": 30, "act": "a_check"}
+        self.last_message_id = 0
 
         try:
             while True:
@@ -343,8 +344,10 @@ class VKBackend(ErrBot):
                     # check if its real message
                     if update[0] == 4:
                         # print("got message")
-                        log.debug(update)
-                        self._handle_message(update)
+                        if update[1] > self.last_message_id:
+                            self.last_message_id = int(update[1])
+                            log.debug(update)
+                            self._handle_message(update)
 
 
 
