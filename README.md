@@ -5,6 +5,8 @@ This is an errbot (http://errbot.io) backend for VK (https://vk.com)
 
 Allows you to create chat bots for VK.
 
+**Гайд на русском языке: https://github.com/Ax3Effect/errbot-vk/wiki/Юзер-гайд **
+
 ## Installation (from scratch)
 
 Refer to this:
