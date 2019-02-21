@@ -1,6 +1,8 @@
 errbot-vk
 ======
 
+# Not working anymore. See https://vk.com/dev/messages_api 
+
 This is an errbot (http://errbot.io) backend for VK (https://vk.com)
 
 Allows you to create chat bots for VK.
